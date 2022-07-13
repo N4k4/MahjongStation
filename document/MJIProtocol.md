@@ -6,9 +6,11 @@ last update:2022/07/09
 author:Naka
 
 ## これは何？
-MJProtocol(以下、MJPと略記)は、MahjongStationと思考エンジンの間でやり取りをするプロトコルとして策定されたものです。
+MahJong Interface Protocol(以下、MJIと略記)は、MahjongStationと思考エンジンの間でやり取りをするプロトコルとして策定されたものです。
 
-[USI](http://shogidokoro.starfree.jp/usi.html)及び[USI-X](https://yaneuraou.yaneu.com/2022/06/07/standard-communication-protocol-for-games/)をベースとしています。
+コマンドの仕様設計について、[USI](http://shogidokoro.starfree.jp/usi.html)及び[USI-X](https://yaneuraou.yaneu.com/2022/06/07/standard-communication-protocol-for-games/)を強く参考にしています。
+
+
 
 ## なぜUSI-Xの拡張としなかったのか
 プロトコルの策定段階では、USI-Xの純粋な拡張として設定する予定でした。
@@ -73,3 +75,52 @@ GUIソフトと、MJIプロトコルエンジンの間でのやりとりを開�
 
 ### 対局終了後
 
+対局が終了したことと、プレイヤーの着順、それぞれのプレーヤーの点棒、それぞれのプレーヤーのウマ・オカを含めた最終スコアを宣言して終了
+
+
+# コマンド定義
+ここからは、MJIプロトコルで利用される具体的なコマンドを定義します。一部、拡張における仕様が定義されている場合もあります。
+
+## GUIからエンジンに送られるコマンド
+
+### `mji`
+```
+mji
+```
+エンジンが起動した直後に送られるコマンドです。エンジンはこれを受け取ったらすぐに`id`コマンドを返します。必要に応じて`option`コマンドを返し、最後に`mjiok`コマンドを送る必要があります。
+
+### `setoption`
+```
+setoption name <id> value <x>
+```
+エンジンのオプションをGUI側から設定するためのオプションです。
+
+`<id>`で指定する名前は、エンジンが起動時に`option`コマンドで返した名前になります。
+`value <x>`で、`setoption`時に指定されたタイプの値を返します。
+
+ただし、オプションにはMJIプロトコルで予約されたオプションがいくつか定義されています。
+
+**ここにMJIプロトコル予約オプションの定義が入ります。**
+
+### `gamesetup`
+```
+gamesetup
+```
+ゲームの準備を開始することを宣言します。
+このコマンドに続けてゲームの設定を`gamerule`コマンドで宣言します。最後に`isready`コマンドを送ってエンジン側の返答を待ちます。
+`gamesetup`が送られた後に送られた`gamerule`コマンドのみ有効です。それまでに送られていたコマンドは無視してください。
+
+### `gamerule`
+```
+gamerule name <id> value <x>
+```
+対局における様々なルールをエンジン側に伝達します。
+
+**ここに具体的なルールを説明する部分が入る**
+
+
+### `isready`
+```
+isready
+```
+エンジンに、準備ができたかどうかを問い合わせます。準備ができた場合は`readyok`コマンドを、対応できないゲームルールが採用されているために対戦を拒否する場合は`readyng`コマンドを送付します
