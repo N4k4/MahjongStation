@@ -163,7 +163,7 @@ GUIソフトと、MJIプロトコルエンジンの間でのやりとりを開�
 
 
 # コマンド定義
-ここからは、MJIプロトコルで利用される具体的なコマンドを定義します。一部、拡張における仕様が定義されている場合もあります。
+ここからは、MJIプロトコルで利用される具体的なコマンドを定義します。
 
 ## GUIからエンジンに送られるコマンド
 
@@ -175,16 +175,16 @@ mji
 
 ### `setoption`
 ```
-setoption name <id> value <x>
+setoption name <id> [ value <x> ]
 ```
 エンジンのオプションをGUI側から設定するためのオプションです。
 
 `<id>`で指定する名前は、エンジンが起動時に`option`コマンドで返した名前になります。
 `value <x>`で、`setoption`時に指定されたタイプの値を返します。
 
-ただし、オプションにはMJIプロトコルで予約されたオプションがいくつか定義されています。
+ただし、オプションにはMJIプロトコルで予約されたオプションがいくつか定義されています。詳細は`option`コマンドの節で定義します。
 
-**ここにMJIプロトコル予約オプションの定義が入ります。**
+
 
 ### `matchsetup`
 ```
@@ -213,6 +213,8 @@ isready <position>
 
 準備ができた場合は`readyok`コマンドを、対応できないゲームルールが採用されているために対戦を拒否する場合は`readyng`コマンドを送付します
 
+いずれかのエンジンが`readyng`を送信した場合は`newmatch`コマンドが送られず、もう一度`matchsetup`コマンドが送信されることがあります。その場合でも適切に処理できる必要があります。
+
 
 
 ### `newmatch`
@@ -223,7 +225,7 @@ newmatch
 
 ### `newhand`
 ```
-newhand round <rounds> hand <hands> stack <stacks> points1 <points1> points2 <points2> ...
+newhand round <rounds> hand <hands> stack <stacks> bou1 <bou1> ... boui <boui>
 ```
 新しい局を始めることを宣言します。同時に、始まる局の情報も伝達します。
 
@@ -233,14 +235,16 @@ newhand round <rounds> hand <hands> stack <stacks> points1 <points1> points2 <po
 
 `<stacks>`は積み棒(本場)を表します。初期状態を0として、連荘などで本場が増えるごとに1加算されます。
 
-`<pointsi>`は、プレイヤーiの点数を表します。この値は負の整数値となることがあります。
+`<boui>`は、プレイヤーiの点棒を表します。この値は負の整数値となることがあります。
 
 ### `tablestatus`
 ```
-tablestatus doraind <doraIndicatorString> tehai <tehaiString> moves <move1> <move2> ... <movei> 
+tablestatus round <rounds> hand <hands> stack <stacks> bou1 <bou1> ... boui <boui> doraind <doraIndicatorString> tehai <tehaiString> moves <move1> <move2> ... <movei> 
 ```
 
 局の状況を提示するコマンドです。
+
+`<rounds>,<hands>,<stacks>,<boui>`は`newhand`と同様です。
 
 `<doraIndicatorString>`はドラ表示牌を提示します。
 
@@ -248,7 +252,7 @@ tablestatus doraind <doraIndicatorString> tehai <tehaiString> moves <move1> <mov
 
 `<movei>`は、局の中での行動が文字列で表現されています。この文字列をたどることで盤面の河や副露の状況を復元することができます。
 
-この状況が思考開始局面になります。
+この状況が思考開始局面になります。一つのコマンドで思考に必要なすべての情報を伝えるべきという考えのもと、`newhand`と同じ情報も載せています。
 
 ### `go`
 ```
@@ -276,5 +280,149 @@ go hassei <timeoptions>
 この時にエンジンができる行動は`pong`,`lkong`,`chow`,`ron`,`none`です。
 何もしないとき、何もできない時は必ず`none`を返してください。
 
+#### `timei`
+```
+go <type> time1 <timeString> time2 <tymeString>...
+```
 
+プレイヤーiの持ち時間を表します。持ち時間の表現は文字列で以下の形式で行われます。
+
+```
+<timeA>+<timeB>
+```
+`<timeA>`は毎ターン与えられる制限時間で、単位はミリ秒です。
+`<timeB>`は局ごとの長考時間で一度消費すると次の局まで復活しません。単位はミリ秒です。
+
+雀魂などで見る5+20秒の持ち時間は`5000+20000`の形式で表現されます。
+
+### `endhand`
+```
+endhand
+```
+進行していた局が終わったことを宣言します。
+
+### `endmatch`
+```
+endmatch [ rank <rank> bou1 <bou1> point <point1> ... boui <boui> pointi <pointi> ]
+```
+終局を宣言します。
+
+正常に終了した場合は同時に結果も伝達します。
+
+`<rank>`はプレイヤーの順位を提示します。
+
+`<boui>`は終局時のプレイヤーiの点棒を表します。
+
+`<pointi>`はプレイヤーiの最終的な点数(ウマやオカを含めた)が点棒1000点を1ポイントとして小数点表記で提示されます。
+
+### `stop`
+エンジンに対し思考中断を指示します。エンジンはこれを受け取ったらすぐ思考を中断して、bestmoveで動作を返す必要があります。
+
+
+### `quit`
+```
+quit
+```
+エンジンに終了を指示します。エンジンはこのコマンドを受け取ったらすぐに終了する必要があります。
+
+
+## エンジンからGUIに送られるコマンド
+
+### `id`
+```
+id name <name>
+id author <author>
+```
+`mji`コマンドが送られてきたら最初に返すコマンドです。
+
+`<name>`にプログラム名を、`<author>`に作者名を入れます。
+
+
+### `option`
+
+```
+option name <optionname> type <optiontype> <parameter...>
+```
+
+エンジン固有の設定値を送ります。GUIから`mji`が送られた後、idとusiokを送り返す間に送ります。
+
+`optionname`にオプション名を入れます。ただし、MJIプロトコルの予約オプションがあります。同名のオプションをエンジンが新たに定義することは避けてください。
+
+`<optiontype>`は以下の種類があります。GUI側での設定の方法で区別されます。
+
+|type名|説明|
+|-|-|
+|check|チェックボックス|
+|spin|数値のみを入力できるコントロールを表示します|
+|combo|ポップアップメニューを表示します|
+|button|ボタンを表示します。このボタンを押すと、オプション名で指定されたコマンドがエンジンに送られます。（オプション名がoptionnameなら、このボタンを押すと、setoption name optionnameというコマンドが送られます。）
+|string|文字列を入力できるコントロールを表示します|
+|filename|ファイル名を入力できるコントロールを表示します。|
+
+`<parameter...>`の部分で、デフォルト値や入力値の範囲などを指定できます。
+
+#### `default`
+```
+default <x>
+```
+デフォルト値を指定します。種類がcheckなら、true,falseのいずれかです。種類がspinなら整数、combo,string,filenameなら任意の文字列です。
+ただし、string,filenameでデフォルト値が空の文字列の場合は`<empty>`を指定してください(両側に比較演算子の記号が必要です)。
+
+#### `min,max`
+```
+min <x>
+max <x>
+```
+種類がspinの時に使います。最大値と最小値を指定します。
+
+#### `var`
+種類がcomboの時に使います。
+
+選択できる文字列を追加します。
+
+#### MJI予約オプション
+
+以下にMJIプロトコルの予約オプションを定義します。オプション名の先頭を`MJI`としているため、衝突の危険性は低いと考えていますが、エンジンの独自のオプション名の先頭に`MJI`の文字列を配置することは避けてください。
+
+##### MJI_Hash
+
+```
+<optionname> = MJI_Hash , <optiontype> = spin
+```
+エンジンのハッシュメモリの量を指定します。単位はMBです。
+
+### `mjiok`
+```
+mjiok
+```
+`id`,`option`コマンドを送った後、最後にこのコマンドを送ります。
+
+### `readyok`
+```
+readyok
+```
+`isready`コマンドを受信したとき、対局準備ができたら返すコマンドです。
+
+### `readyng`
+```
+readyng 
+```
+
+一部の対局設定の非対応が理由で対局を開始できない場合に送ります。
+
+### `bestmove`
+```
+bestmove <move>
+```
+
+エンジンの動作を返します。`<move>`は、「動作の表現」の章の動作表現文字列に従います。
+
+### `info`
+```
+info <infotype> <param...>
+```
+
+エンジンは、goコマンドで思考を開始してからbestmoveコマンドで指し手を返すまでの間、`info`コマンドによって思考中の情報を返すことができます。
+
+**詳細は整備中です**
 
